@@ -4411,6 +4411,20 @@ try {
     await ctx.close();
   });
 
+  await test("a swipe sideways can't start the browser's swipe to go Back: the page doesn't overscroll, and the map takes every touch", async () => {
+    const ctx = await profile();
+    const { page, problems } = await open(ctx);
+    await found(page);
+    const look = await page.evaluate(() => ({
+      overscroll: ['html', 'body'].map((s) => getComputedStyle(document.querySelector(s)).overscrollBehaviorX),
+      touch: getComputedStyle(document.body).touchAction,
+      map: document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.id,
+    }));
+    assert.deepEqual(look, { overscroll: ['none', 'none'], touch: 'none', map: 'map' });
+    assert.deepEqual(problems, []);
+    await ctx.close();
+  });
+
   await test("at its own address the title screen asks nothing of Google, and Drive says so when Google's sign-in can't load", async () => {
     const { ctx, page, problems, away } = await atTheSite();
     await page.waitForTimeout(1500);
