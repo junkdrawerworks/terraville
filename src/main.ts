@@ -1,4 +1,5 @@
 // Boot: build the page, wire the game, start the frame loop.
+import { guardEdges } from './edge-guard';
 import { Game } from './game';
 import { Input } from './input';
 import type { SaveFile } from './save';
@@ -29,6 +30,10 @@ function start(hot: HotData): void {
   const ui = new UI(game, root);
   game.ui = ui;
   const input = new Input(game, map);
+  // A Back that comes mid-drag, or just after the browser took a touch away from the map or a panel a finger slides
+  // (as Android's back gesture does to a drag that starts near the screen's side), is a slip: the city stays as it was.
+  // A Back meant to leave still leaves.
+  guardEdges({ surfaces: ['#map', '#toolbox', '#editorPanel', '#minimap'].map((s) => root.querySelector(s)!) });
   game.renderer.resize();
   window.addEventListener('resize', () => {
     game.renderer.resize();
