@@ -4461,7 +4461,8 @@ try {
 
   await test('a Back mid-drag, or just after the browser takes a touch from the map, leaves the city as it was; a Back later leaves in one press', async () => {
     // On Android a drag that starts near the screen's side can be taken for the back gesture: the browser takes the
-    // touch (pointercancel) and a Back follows. That's a slip, and so is a Back while a finger is still dragging.
+    // touch (pointercancel) and a Back follows. That's a slip, and so is a Back while a finger is still dragging. The
+    // guard's extra history entry goes on when a finger touches the map or a panel and comes off a second after it lifts.
     const ctx = await profile();
     const page = await ctx.newPage();
     const problems = [];
@@ -4476,8 +4477,12 @@ try {
     const here = async (why) => { await page.waitForTimeout(300); assert.equal(page.url(), base, why); assert.deepEqual(await city(), before, `${why}: the city is as it was`); };
     const cdp = await ctx.newCDPSession(page);
     const touch = (type, x = 0, y = 0) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y }] });
+    const guarded = () => page.evaluate(() => history.state?.__edgeGuard === true);
+    await page.waitForFunction(() => !history.state?.__edgeGuard, null, { timeout: 3000 }).catch(() => assert.fail('with no finger on the map, there should be no extra history entry'));
     // A road dragged in from near the screen's side: Back comes mid-drag, and the drag carries on.
-    await touch('touchStart', 12, 500); await touch('touchMove', 60, 500); await touch('touchMove', 120, 500);
+    await touch('touchStart', 12, 500);
+    assert.equal(await guarded(), true, 'a finger down on the map adds the extra entry');
+    await touch('touchMove', 60, 500); await touch('touchMove', 120, 500);
     assert.equal(await page.evaluate(() => window.__terraville.dragging), true, 'the road is being dragged');
     await page.evaluate(() => history.back());
     await here('a Back mid-drag should stay in the city');
@@ -4493,14 +4498,14 @@ try {
     await touch('touchCancel');
     await page.evaluate(() => history.back());
     await here('a Back just after the touch was taken should stay in the city');
-    // The same on the tool strip, after a tap (which puts back the history step the slip used).
+    // The same on the tool strip.
     await page.tap('#ticker .msg');
     await page.evaluate(() => { const t = document.getElementById('toolbox'); t.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 9, bubbles: true })); t.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 9, bubbles: true })); });
     await page.goBack({ waitUntil: 'commit', timeout: 1000 }).catch(() => {});
     await here("a Back just after the tool strip's touch was taken should stay in the city");
-    // A second later (and a key pressed, which puts the step back as a tap does), Back leaves in one press.
-    await page.keyboard.press('Shift');
-    await page.waitForTimeout(1100);
+    // A second later the extra entry is gone, and Back leaves in one press.
+    await page.waitForTimeout(1300);
+    assert.equal(await guarded(), false, 'a second after the last touch, there is no extra entry to press Back through');
     await page.goBack();
     await page.waitForTimeout(300);
     assert.equal(page.url(), base + 'icon.svg', 'a Back a while after should leave the game');
