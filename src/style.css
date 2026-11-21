@@ -1191,6 +1191,15 @@ footer.jd-foot { display: block; margin: 0; padding: 4px 0 0; border: 0; font-si
   #title { background: rgba(8, 12, 10, 0.78); }
   .title-inner { margin-left: 0; }
 }
+/* On a phone's touch screen, the panels along the bottom keep 24 px from the screen's sides, clear of where Android's
+   back gesture starts: the tool strip is flicked sideways and holds the brush sliders, the terrain editor's panel has
+   sliders, and the map layer card is dragged; the news line, the Inspect card and the news log line up with them. The
+   map itself still runs to the edges: anything near them can be moved in, and a slip there is caught (see main.ts). */
+@media (pointer: coarse) and (max-width: 560px) {
+  #toolbox, #ticker, #editorPanel, #inspect, #inspect.news { left: calc(var(--left) + 24px); right: calc(var(--right) + 24px); }
+  #log { left: calc(var(--left) + 24px); width: calc(100vw - 48px - var(--left) - var(--right)); }
+  #minimapCard.show { right: calc(var(--right) + 24px); }
+}
 /* The smallest phones: the menu's buttons close up and the sign's lines tighten, so the name keeps its room. */
 @media (max-width: 380px) {
   .menu { gap: 0; }

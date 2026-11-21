@@ -4425,6 +4425,40 @@ try {
     await ctx.close();
   });
 
+  await test("on a phone, the panels along the bottom keep 24 px from the screen's sides, where Android's back gesture starts", async () => {
+    // The tool strip (flicked sideways, with the brush sliders), the editor's panel (sliders) and the map layer card
+    // (dragged), with the news line lined up; at any phone width. With a mouse they keep 8 px.
+    const sides = (page) => page.evaluate(() => Object.fromEntries(['#toolbox', '#ticker', '#editorPanel', '#minimapCard'].map((s) => {
+      const r = document.querySelector(s).getBoundingClientRect();
+      return [s, r.width ? Math.round(Math.min(r.left, innerWidth - r.right) * 10) / 10 : null];
+    }).filter(([, v]) => v !== null)));
+    for (const [width, height] of [[320, 640], [360, 740], [390, 844], [412, 915]]) {
+      const ctx = await profile({ ...PHONE, viewport: { width, height } });
+      const { page, problems } = await open(ctx);
+      await found(page);
+      await page.evaluate(() => window.__terraville.ui.setOverlay('power'));
+      const city = await sides(page);
+      assert.deepEqual(Object.keys(city), ['#toolbox', '#ticker', '#minimapCard'], `at ${width} px in a city`);
+      for (const [s, gap] of Object.entries(city)) assert.ok(gap >= 23.5, `${s} is ${gap} px from the screen's side at ${width} px, in a city`);
+      await page.goto(base);
+      await titleUp(page);
+      await page.click('[data-act="editor"]');
+      await page.waitForFunction(() => window.__terraville.mode === 'editor');
+      await page.evaluate(() => window.__terraville.ui.setOverlay('slope'));
+      const editor = await sides(page);
+      assert.deepEqual(Object.keys(editor), ['#toolbox', '#editorPanel', '#minimapCard'], `at ${width} px in the editor`);
+      for (const [s, gap] of Object.entries(editor)) assert.ok(gap >= 23.5, `${s} is ${gap} px from the screen's side at ${width} px, in the editor`);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      assert.deepEqual(problems, []);
+      await ctx.close();
+    }
+    const ctx = await profile({ viewport: { width: 390, height: 844 } });
+    const { page } = await open(ctx);
+    await found(page);
+    assert.equal((await sides(page))['#toolbox'], 8, 'with a mouse, the tool strip keeps 8 px');
+    await ctx.close();
+  });
+
   await test("at its own address the title screen asks nothing of Google, and Drive says so when Google's sign-in can't load", async () => {
     const { ctx, page, problems, away } = await atTheSite();
     await page.waitForTimeout(1500);
